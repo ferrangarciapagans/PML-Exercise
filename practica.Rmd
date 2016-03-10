@@ -1,0 +1,94 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Ferran Garcia Pagans"
+date: "Saturday, March 05, 2016"
+output: html_document
+---
+This is the report for the Practical Machine Learning course project. You can find more information abaout the project in this link:
+https://www.coursera.org/learn/practical-machine-learning/supplement/PvInj/course-project-instructions-read-first
+
+In this exercise we're going to use data from the Weight Lifting Exercise Dataset. 
+
+"Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013."
+
+You can find more in this website: http://groupware.les.inf.puc-rio.br/har
+
+## Initilize the environment
+The following code will load the required packges and will set the seed to 34 i order to be able to reproduce this work.
+
+```{r}
+library(ggplot2)
+library(lattice)
+library(caret)
+set.seed(34)
+```
+
+## Data Prearation and Cleanning
+We'll start loading the original data. We'll use the training data set to train and tune our model, so we'll split the data set into a training data set and a testing data set. We'll use the test data set for validation, so we'll name it validation.
+
+After spliting the original training data set, we're going to remove some variables. The first 6 variables doesn0t contain helpful information for the classifier, for this reason we're going to delete it. Some variables are almost always NA and some show very little variability. I will remove these variabless.
+
+```{r}
+# Load Data
+original_train <- read.csv("pml-training.csv")
+validation     <- read.csv("pml-testing.csv")
+
+# Split thedata set 
+inTrain        <- createDataPartition(y=original_train$classe, p=0.7, list=F)
+train          <- original_train[inTrain, ]
+test           <- original_train[-inTrain, ]
+
+# Remove the 6 first variables
+train          <- train[, -(1:6)]
+test           <- test [, -(1:6)]
+
+# Remove variables with low variance
+nzv            <- nearZeroVar(train)
+train          <- train[, -nzv]
+test           <- test[, -nzv]
+
+# Remove variables with a big percentage of NA
+HighNA         <- sapply(train, function(x) mean(is.na(x))) > 0.40
+train          <- train[, HighNA==F]
+test           <- test[, HighNA==F]
+
+```
+
+## Model Building and Evaluation
+In this exercise we'll comprare Decision Tree and Random Forest algorithms. I choosed Decission Tree and Random Forest algorithms because this is a classification problem.
+
+### Classification Tree
+```{r}
+# Classification Tree
+fitControl        <- trainControl(method="cv", number=5, verboseIter=F)
+modelTree         <- train(classe ~ ., data=train, method="rpart", trControl=fitControl)
+print(modelTree, digits=3)
+predictionsTree   <- predict(modelTree, newdata=test)
+confusionMatrix(test$classe, predictionsTree)
+```
+
+### Random Forest
+```{r}
+# Random Forest
+fitControl           <- trainControl(method="cv", number=5, verboseIter=F)
+modelForest          <- train(classe ~ ., data=train, method="rf", trControl=fitControl)
+print(modelForest, digits=3)
+predictionsForest    <- predict(modelForest, newdata=test)
+confusionMatrix(test$classe, predictionsForest)
+
+```
+
+The accuracy of Random Forest is 99,75% while the accuracy of Decision Tree is only 50.09%; for this reason we're going to use this Random Forest. This algorithm provides an accuracy in the test dataset of 99.75%, **the expected out-of-sample error is 1-0.9975 = 0.25%.**
+
+## Creating the Predictions to submit
+In this section we'll create new predictons for the original testing data set using the Random Forest algorithm. In the begining of this exercise we named valitation to this data set. 
+ 
+ 
+```{r}
+
+final_predictions      <- predict(modelForest, newdata=validation)
+print(final_predictions)
+
+```
+
+
